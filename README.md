@@ -9,88 +9,36 @@ structured telemetry already on your machine:
 2. What is one concrete behavior or configuration I would change next?
 
 You need a Mac with Python 3.9 or newer (check with `python3 --version`). No
-account and no sudo.
+account, no SnooZELab checkout and no sudo.
 
-**Where this stands.** The current candidate is v15
-(`dist/howmuch-candidate-v15.pyz`). It is a file in this repository. It is
-not published: the public download address is not live yet. So there are two
-ways in, and only the first works today.
-
-**Today, from a checkout of this repository (works now):**
-
-```sh
-sh projects/howmuch_cli/install.sh --from projects/howmuch_cli/dist/howmuch-candidate-v15.pyz
-```
-
-**The proposed public beta, with no checkout (not live):** once the release
-is approved and its staged address is live, this one command is the whole
-install. Until then it does not install v15.
+Install it (one file, to `~/.local/bin/howmuch`):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/InferGen/howmuch/main/install.sh | sh
 ```
 
-Either way one file is installed, to `~/.local/bin/howmuch`. If it says
-`~/.local/bin` is not on your PATH, add the line it prints to `~/.zshrc` and
-open a new terminal. Check that the file you got is v15 (it prints
-`installed file OK`, or nothing if it is some other file):
+If it says `~/.local/bin` is not on your PATH, add the line it prints to
+`~/.zshrc` and open a new terminal. Then:
 
 ```sh
-test "$(shasum -a 256 < "$HOME/.local/bin/howmuch" | cut -c1-64)" = "735e91fc7610f418bfb087a805f2b2519d7d37862ed3864d224e3e132f155af5" && echo "installed file OK"
-```
-
-Start to finish that is under five minutes: check Python, one install
-command, the PATH line if it asks, the check above, then `howmuch today`. A
-page showing what v15 prints, on made-up data, is
-[`samples/prototype_v15.html`](samples/prototype_v15.html). How a release is
-staged, checked, installed and rolled back, and the approvals it still needs,
-is in
-[`evidence/HOWMUCH-ENV-LAYER-V0-STEP-017/release_workflow.md`](evidence/HOWMUCH-ENV-LAYER-V0-STEP-017/release_workflow.md);
-the exact file and its hashes are in
-[`evidence/HOWMUCH-ENV-LAYER-V0-STEP-017/v15_manifest.json`](evidence/HOWMUCH-ENV-LAYER-V0-STEP-017/v15_manifest.json).
-
-Then:
-
-```sh
-howmuch today      # what happened, was it worth it, what it cost, and what to do next
-howmuch week       # the same summary and the receipt for the last 7 days
-howmuch roi        # the Human ROI statement: verified work against what it took
-howmuch debrief    # the summary with every field behind it
+howmuch today      # where today's $ went, what you got, and one thing to try next
+howmuch week       # the receipt for the last 7 days, with your top 3 jobs
 howmuch record     # optional: save daily figures to ~/.howmuch/history.jsonl
 howmuch history    # optional: those saved figures, one line per day
 ```
 
-### Every provider you used, each counted on its own
+### Automatic provider detection
 
-`today`, `week`, `roi` and `debrief` read every provider that has usage in
-the period and keep each one apart as its own lane. Claude Code having
-sessions never hides Codex, and no lane is merged into another. No provider
-flag or checkout is required. Claude uses `$CLAUDE_CONFIG_DIR/projects` or
-`~/.claude/projects`. Codex is not assumed to live in `~/.codex` alone: with
-`$HOWMUCH_CODEX_HOME` set, only that folder is read; otherwise `$CODEX_HOME`,
-`~/.codex` and every `~/.codex*` folder that has a `sessions` folder (a second
-Codex install, such as `~/.codex2`) are each read as their own lane, opening
-only `sessions/**/rollout-*.jsonl`.
+`today` and `week` use Claude Code when it has sessions in the requested
+period, otherwise local Codex rollout telemetry. If both are available,
+Claude wins deterministically; sources are never merged. No provider flag
+or checkout is required. Claude uses `$CLAUDE_CONFIG_DIR/projects` or
+`~/.claude/projects`; Codex uses `$HOWMUCH_CODEX_HOME`, then `$CODEX_HOME`,
+then `~/.codex`, reading only `sessions/**/rollout-*.jsonl`.
 
-All four commands share one record of the period
-(`howmuch-period-evidence/v0.1`, `period_evidence` in `--json`): one
-partition per provider and lane, with its sessions, models, observed tokens,
-ESTIMATED API-equivalent $ and charged cost (always `UNKNOWN`: no local file
-says what a plan charged). Token classes are normalized so nothing is counted
-twice, and a session seen in two homes is counted once. A total over lanes is
-the sum of what is known, and says when part of it is a lower bound. Work
-Unit, attempt and surface are `UNKNOWN` unless a durable id says otherwise.
-
-With Codex alone, `today` and `week` print the same till receipt as with
-Claude Code: the same title, rules, right-aligned values and section order
-(see "With Codex alone" below). `ACTIVITY` and `SESSIONS` come from Codex's
-observed token classes, with the ESTIMATED API-equivalent cost; each session
-keeps its model, provider, lane, counter source and confidence. Codex's
-session files are read for token counters only, so the kinds of work, tool
-outcomes, friction and suggestions are printed as `UNKNOWN` or
-`INSUFFICIENT_EVIDENCE` with the reason, never as zero. As with Claude Code,
-`QUOTA` is in `today` only; `week --json` still has the quota figures.
-The originating surface is UNKNOWN for automatic
+Codex receipts lead with directly observed quota, observed token classes
+and ESTIMATED API-equivalent cost. They preserve model, provider, source,
+surface and confidence. The originating surface is UNKNOWN for automatic
 rollout discovery; a local file alone does not prove CLI versus app origin. Cached input is part of input; reasoning is part
 of output, so neither is counted twice. Missing fields and unmapped models
 are UNKNOWN, never guessed as zero. Quota is independent of dollar estimates;
@@ -98,9 +46,7 @@ actual billed spend is NOT_EXPOSED. Cost uses the pinned API price table.
 
 Periods use local midnight (today) and the last seven local calendar days
 (week). Cumulative increments require a baseline inside that period; a
-boundary-crossing interval remains UNKNOWN, and the increments known to be
-inside the period are reported as a lower bound. Every rollout file changed
-since the period began is considered,
+boundary-crossing interval remains UNKNOWN. All rollout files are considered,
 not only the newest five used for quota discovery. Malformed files fail
 closed and their count is shown. Incomplete or rotated telemetry cannot
 fully explain plan limits. Sessions are represented by hashed local identity;
@@ -115,16 +61,14 @@ path is included in Codex receipts. No auth/login/config files are read.
 
 ### What you'll see
 
-`howmuch today` shows a four-part summary (what happened, was it worth it,
-what it cost you in time and inference, what to do next), then quota for the
-lanes you used and a rollup you can read without opening a receipt.
+`howmuch today` shows quota for Claude Code and Codex, then a rollup you can read without opening a receipt.
 This one is from made-up sessions in the test fixtures, with no quota
-evidence, no work records and no touch log on the machine at all, so those
-figures read `UNKNOWN` rather than a guess:
+evidence on the machine at all:
 
 ```text
 ================================================
                     HOWMUCH
+              Claude Code receipt
                      TODAY
                    2026-09-20
             through 15:00 local time
@@ -134,61 +78,18 @@ API-EQUIVALENT                           $0.4000
   retrieved                           2026-09-27
   API list prices; not what your plan charges
 ------------------------------------------------
-WHAT HAPPENED
-lanes with observed usage                      1
-Anthropic / Claude Code
-  sessions                                     2
-  observed tokens                         40,000
-  API-equivalent (ESTIMATE)              $0.4000
-work units finished                      UNKNOWN
-  why: no work records given; see --work-records
-howmuch-period-evidence/v0.1; lanes never merged
-------------------------------------------------
-WAS IT WORTH IT
-ROI                                      UNKNOWN
-verified advancement relative to total
-  investment
-Value: verified work units               UNKNOWN
-Human Cost: Founder touches              UNKNOWN
-  active human minutes                   UNKNOWN
-Dependency: lanes used                         1
-  Founder touches per work unit          UNKNOWN
-ROI not known: verified_work_units,
-  charged_cost_usd, founder_touch_events,
-  active_human_minutes
-howmuch-human-roi/v0.1; no blended score
-------------------------------------------------
-WHAT COST YOU TIME / INFERENCE
-observed tokens                           40,000
-API-equivalent (ESTIMATE)                $0.4000
-charged cost                             UNKNOWN
-active human minutes                     UNKNOWN
-model working minutes                       18.0
-reply-to-prompt gap, median              UNKNOWN
-idle time                                UNKNOWN
-interruptions                            UNKNOWN
-large-context turns                            0
-context resets                                 0
-repair loops (ESTIMATE)                        1
-failed tool calls                              2
-a gap is wall-clock time: not idle time, not
-  attention
-------------------------------------------------
-WHAT SHOULD YOU DO NEXT
-1. In alpha @ main: after a command fails, ask
-  for the cause before any edit.
-  provenance              INFERRED > RECOMMENDED
-  confidence                                 low
-each action cites its evidence in --json
-------------------------------------------------
 QUOTA
 Claude Code                              UNKNOWN
   source                                 UNKNOWN
   seen                           nothing current
   confidence                             UNKNOWN
   why: no quota evidence on this machine
+Codex                                    UNKNOWN
+  source                                 UNKNOWN
+  seen                           nothing current
+  confidence                             UNKNOWN
+  why: no Codex folder on this machine
 howmuch-quota-v0; read locally
-only lanes with usage in this period
 ------------------------------------------------
 WHERE IT WENT
  50% repair loops (ESTIMATE)             $0.2000
@@ -245,12 +146,13 @@ support a suggestion, `TRY NEXT` says `no suggestion` and why. It never falls
 back to general advice. The receipt's own figures follow under
 `RECEIPT DETAIL`, so you can inspect and verify what the rollup is made from.
 
-`howmuch week` prints the same summary and the receipt, without the rollup,
-like this one (made-up sessions from the test fixtures):
+`howmuch week` prints the receipt alone, like this one (made-up sessions from
+the test fixtures):
 
 ```text
 ================================================
                     HOWMUCH
+              Claude Code receipt
                       WEEK
             2026-09-14 to 2026-09-20
             through 15:00 local time
@@ -259,51 +161,6 @@ API-EQUIVALENT                           $0.0109
   price table           ANTHROPIC-API-2026-09-27
   retrieved                           2026-09-27
   API list prices; not what your plan charges
-------------------------------------------------
-WHAT HAPPENED
-lanes with observed usage                      1
-Anthropic / Claude Code
-  sessions                                     2
-  observed tokens                          4,540
-  API-equivalent (ESTIMATE)              UNKNOWN
-work units finished                      UNKNOWN
-  why: no work records given; see --work-records
-howmuch-period-evidence/v0.1; lanes never merged
-------------------------------------------------
-WAS IT WORTH IT
-ROI                                      UNKNOWN
-verified advancement relative to total
-  investment
-Value: verified work units               UNKNOWN
-Human Cost: Founder touches              UNKNOWN
-  active human minutes                   UNKNOWN
-Dependency: lanes used                         1
-  Founder touches per work unit          UNKNOWN
-ROI not known: verified_work_units,
-  api_equivalent_usd, charged_cost_usd,
-  founder_touch_events, active_human_minutes
-howmuch-human-roi/v0.1; no blended score
-------------------------------------------------
-WHAT COST YOU TIME / INFERENCE
-observed tokens                            4,540
-API-equivalent (ESTIMATE)                UNKNOWN
-  known part                             $0.0109
-charged cost                             UNKNOWN
-active human minutes                     UNKNOWN
-model working minutes                        4.0
-reply-to-prompt gap, median                   3m
-idle time                                UNKNOWN
-interruptions                            UNKNOWN
-large-context turns                            0
-context resets                                 0
-repair loops (ESTIMATE)                        0
-failed tool calls                              0
-a gap is wall-clock time: not idle time, not
-  attention
-------------------------------------------------
-WHAT SHOULD YOU DO NEXT
-no next action: INSUFFICIENT_EVIDENCE
-each action cites its evidence in --json
 ------------------------------------------------
 ACTIVITY
 sessions                                       2
@@ -314,6 +171,16 @@ total tokens                               4,540
   output                                     405
   cache write                                100
   cache read                               3,000
+------------------------------------------------
+5-HOUR WINDOW (ESTIMATE)
+no window open at 2026-09-20 15:00
+limit ESTIMATE                           UNKNOWN
+  no limit hits seen locally
+baseline median                          $0.0054
+  windows in the last 7 days                   2
+confidence                                  none
+howmuch-pace-v0, 5h-rolling-approx;
+not the provider's own meter
 ------------------------------------------------
 REPAIR TAX (ESTIMATE)
 no repair loops detected (howmuch-repair-v0)
@@ -336,209 +203,16 @@ Skipped 1 malformed line.
 ================================================
 ```
 
-`QUOTA` has a block only for a lane with usage in the period, and says where
-each figure came from: `MACHINE OBSERVED` (the provider's own figure, seen on
-this Mac), `HUMAN OBSERVED` (one you typed in with `howmuch set-quota`) or
-`UNKNOWN`. They are tried in that order, and a figure that has gone stale
-is never shown as current. Nothing is calculated from elapsed time.
-
-Every sample in this README and in `samples/fixture_*` is made-up fixture
-data. Receipts from real work are kept apart, under `evidence/`, and say so
-on their first line.
+`QUOTA` says where each figure came from: `MACHINE OBSERVED` (the provider's
+own figure, seen on this Mac), `HUMAN OBSERVED` (one you typed in with
+`howmuch set-quota`), `MACHINE CALCULATED` (an estimate from your own usage)
+or `UNKNOWN`. They are tried in that order, and a figure that has gone stale
+is never shown as current.
 
 Privacy: howmuch reads only the Claude Code session files on this Mac
-(`~/.claude/projects`) and the Codex session files (`sessions/` under each
-Codex home), plus the work records and touch log you point it at. It never
-prints your prompts or responses, never makes a network call, and nothing is
-uploaded.
-
-### The ROI statement, and trying the local candidate
-
-`howmuch roi` prints the Human ROI statement. A standalone page of it, from
-made-up fixture data, is in
-[`samples/howmuch_roi_statement.html`](samples/howmuch_roi_statement.html):
-open it in any browser; it loads nothing from anywhere. To try the local
-candidate build on your own machine, from a checkout, without uploading
-anything:
-
-```sh
-python3 projects/howmuch_cli/dist/howmuch.pyz today
-python3 projects/howmuch_cli/dist/howmuch.pyz week
-python3 projects/howmuch_cli/dist/howmuch.pyz roi --html ~/howmuch-roi.html
-python3 projects/howmuch_cli/dist/howmuch.pyz debrief
-```
-
-`roi --html PATH` writes the one page you name and nothing else. Add
-`--work-records DIR` and `--touch-log FILE` (see Human ROI below) to fill in
-verified work and Founder touches; without them those read `UNKNOWN`.
-`dist/howmuch.pyz` here is a local candidate: it is not a published release
-until the normal publisher says so. It is the same program as v15 without
-the candidate label, so its sha256 is not v15's.
-
-### With Codex alone (candidate B, and v15)
-
-On a machine with Codex sessions and no Claude Code sessions, earlier builds
-did not print the receipt: the title, quota and usage came out as plain,
-unaligned lines. Candidate B
-(`dist/howmuch-candidate-b.pyz`) prints the receipt there too, and so does
-v15. Candidate B is kept as it was built, beside v15. To install it
-into a folder of its own, leaving any `howmuch` you already have alone, and
-run it:
-
-```sh
-HOWMUCH_BIN_DIR="$HOME/howmuch-candidate-b/bin" sh projects/howmuch_cli/install.sh --from projects/howmuch_cli/dist/howmuch-candidate-b.pyz
-"$HOME/howmuch-candidate-b/bin/howmuch" today
-"$HOME/howmuch-candidate-b/bin/howmuch" week
-shasum -a 256 "$HOME/howmuch-candidate-b/bin/howmuch"
-```
-
-On another machine, copy `dist/howmuch-candidate-b.pyz` and `install.sh`
-there and give `--from` the copy's path. Both candidates say `howmuch 0.1.1`,
-so the last line is how to tell them apart: it must print the `sha256` in
-`evidence/HOWMUCH-ENV-LAYER-V0-STEP-016/candidate_b_manifest.json`
-(`dc3b49a5943a...`). Remove it
-with `rm -r ~/howmuch-candidate-b`. Candidate B is a local candidate: it is
-not published, and it has not been run on i7.
-
-`howmuch today` with Codex alone, as v15 prints it on made-up fixture data
-(`samples/fixture_codex_only_today_receipt.txt`; the `week` one is
-`samples/fixture_codex_only_week_receipt.txt`). Candidate B prints the same
-receipt except for the two price table lines: it carries the Codex price
-table of 2026-10-04, v15 the one of 2026-10-09.
-
-```text
-================================================
-                    HOWMUCH
-                     TODAY
-                   2026-09-20
-            through 15:00 local time
-================================================
-API-EQUIVALENT                           $0.0019
-  price table     OPENAI-API-STANDARD-2026-10-09
-  retrieved                           2026-10-09
-  API list prices; not what your plan charges
-------------------------------------------------
-WHAT HAPPENED
-lanes with observed usage                      1
-openai / Codex ~/.codex
-  sessions                                     1
-  observed tokens                          1,100
-  API-equivalent (ESTIMATE)              $0.0019
-work units finished                      UNKNOWN
-  why: no work records given; see --work-records
-howmuch-period-evidence/v0.1; lanes never merged
-------------------------------------------------
-WAS IT WORTH IT
-ROI                                      UNKNOWN
-verified advancement relative to total
-  investment
-Value: verified work units               UNKNOWN
-Human Cost: Founder touches              UNKNOWN
-  active human minutes                   UNKNOWN
-Dependency: lanes used                         1
-  Founder touches per work unit          UNKNOWN
-ROI not known: verified_work_units,
-  charged_cost_usd, founder_touch_events,
-  active_human_minutes
-howmuch-human-roi/v0.1; no blended score
-------------------------------------------------
-WHAT COST YOU TIME / INFERENCE
-observed tokens                            1,100
-API-equivalent (ESTIMATE)                $0.0019
-charged cost                             UNKNOWN
-active human minutes                     UNKNOWN
-model working minutes                    UNKNOWN
-reply-to-prompt gap, median              UNKNOWN
-idle time                                UNKNOWN
-interruptions                            UNKNOWN
-large-context turns                      UNKNOWN
-context resets                           UNKNOWN
-repair loops (ESTIMATE)                  UNKNOWN
-failed tool calls                        UNKNOWN
-a gap is wall-clock time: not idle time, not
-  attention
-------------------------------------------------
-WHAT SHOULD YOU DO NEXT
-no next action: INSUFFICIENT_EVIDENCE
-each action cites its evidence in --json
-------------------------------------------------
-QUOTA
-Codex ~/.codex                         AVAILABLE
-  remaining                                  42%
-  resets                        2026-09-24 08:50
-    in                                    3d 17h
-  source                        MACHINE OBSERVED
-  seen                          2026-09-20 14:50
-  confidence                                HIGH
-  from Codex session files on this machine
-howmuch-quota-v0; read locally
-only lanes with usage in this period
-------------------------------------------------
-WHERE IT WENT
-spend by kind of work                    UNKNOWN
-  why: Codex tool calls and results are not read
-------------------------------------------------
-WHAT YOU GOT
-file edits and command runs              UNKNOWN
-git commits made                         UNKNOWN
-outcome quality                          UNKNOWN
-  why: Codex tool calls and results are not read
-------------------------------------------------
-FRICTION
-repair loops                             UNKNOWN
-failed tool calls                        UNKNOWN
-  why: Codex tool calls and results are not read
-------------------------------------------------
-BIGGEST OPPORTUNITY
-none found: INSUFFICIENT_EVIDENCE
-Codex tool calls and results are not read
-------------------------------------------------
-TRY NEXT
-no suggestion: INSUFFICIENT_EVIDENCE
-Codex tool calls and results are not read
-================================================
-RECEIPT DETAIL
-the figures behind the rollup above
-------------------------------------------------
-ACTIVITY
-sessions                                       1
-prompts                                  UNKNOWN
-assistant turns                          UNKNOWN
-total tokens                               1,100
-  input                                    1,000
-    of which cached                          800
-  output                                     100
-    of which reasoning                        20
-------------------------------------------------
-SESSIONS
-1. gpt-5.3-codex                         $0.0019
-  lane                            Codex ~/.codex
-  provider                                openai
-  session                           bd1cc9896b34
-  total tokens                             1,100
-    input                                  1,000
-      of which cached                        800
-    output                                   100
-      of which reasoning                      20
-  counters from                      token_count
-  confidence                                high
-------------------------------------------------
-sessions crossing the period start             0
-malformed or unreadable files                  0
-work unit / job                      NOT_EXPOSED
-tokens OBSERVED; $ ESTIMATED from them
-quota is never derived from cost
-================================================
-        Read locally. Nothing uploaded.
-                 howmuch 0.1.1
-================================================
-```
-
-On the same fixture, candidate A printed a plain `HOWMUCH - TODAY` title, the
-four-part summary, and then the quota and usage as unaligned lines such as
-`Usage OBSERVED: input_tokens=1000, cached_input_tokens=800, ...`, up to 194
-columns wide. Both are kept side by side in
-`evidence/HOWMUCH-ENV-LAYER-V0-STEP-016/fixture_before_after.txt`.
+(`~/.claude/projects`) and, for the Codex quota figures alone, the Codex
+session files (`~/.codex/sessions`). It never prints your prompts or
+responses, never makes a network call, and nothing is uploaded.
 
 Uninstall:
 
@@ -587,17 +261,6 @@ the `DEFAULT_PYZ_URL` at its top, and installs to `$HOWMUCH_BIN_DIR`
 (default `~/.local/bin`). The download URLs are not live yet; until a release
 is published, install with `--from`. `howmuch --version` prints the version.
 
-A named candidate is the same archive with one more entry, `CANDIDATE.json`
-(the label and a sha256 of the packaged files), so the file has a sha256 of
-its own while the program runs exactly the same:
-
-```sh
-python3 projects/howmuch_cli/tools/build_pyz.py --candidate v15 --out projects/howmuch_cli/dist/howmuch-candidate-v15.pyz
-```
-
-A candidate file is not rebuilt once recorded. If the sources change, the
-next build is a new candidate under a new name.
-
 ## Usage
 
 ```sh
@@ -615,20 +278,17 @@ Sessions are read from `--root`, else `$CLAUDE_CONFIG_DIR/projects`, else
 wide and plain ASCII, with labels on the left and figures right-aligned.
 Top to bottom:
 
-- a header: `HOWMUCH`, the period, its dates and the end time, in local
-  time. No provider is named in the title; providers and lanes are inside.
+- a header: the period, its dates and the end time, in local time
 - `API-EQUIVALENT`, the dollar figure from the bundled price table
-  (`src/howmuch/prices.json`), with its price table id and retrieval date.
-  With more than one lane it is the sum of what each lane could price, and
-  says so when a lane is not priced.
-- `WHAT HAPPENED`, `WAS IT WORTH IT`, `WHAT COST YOU TIME / INFERENCE` and
-  `WHAT SHOULD YOU DO NEXT` (see Human ROI below)
-- in `today` only: `QUOTA`, a block for each lane with usage in the period
+  (`src/howmuch/prices.json`), with its price table id and retrieval date
+- in `today` only: `QUOTA`, a block for Claude Code and a block for Codex
   (see below)
 - in `today` only: the rollup (see below), then a `RECEIPT DETAIL` line.
   The receipt's own sections follow under it.
-- `ACTIVITY`: Claude Code sessions, prompts, assistant turns and total
-  tokens, then the input, output, cache-write and cache-read tokens
+- `ACTIVITY`: sessions, prompts, assistant turns and total tokens, then the
+  input, output, cache-write and cache-read tokens
+- `5-HOUR WINDOW (ESTIMATE)` (see below): always in `week`; in `today` only
+  when Claude Code's quota is `MACHINE CALCULATED` from it
 - `REPAIR TAX (ESTIMATE)` (see below)
 - `TOP JOB`: the top job by dollars, then tokens, with its sessions, prompts
   and tokens, then jobs 2 and 3 on one line each. A job is a (project
@@ -644,72 +304,6 @@ A character outside plain ASCII is shown as `?`.
 `today` and `week`. `today --json` also carries `quota_state` (the Claude
 Code record) and `quota_environments` (one record per provider: Claude Code,
 then Codex).
-
-## Human ROI (today, week, roi and debrief)
-
-The locked statement is **ROI = verified advancement relative to total
-investment**. `roi` prints it in full, `debrief` prints the four-part
-summary with every field behind it, and `today` and `week` carry the same
-statement as `human_roi` in `--json` (`howmuch-human-roi/v0.1`). For one
-period and one set of inputs the four commands give the same statement.
-
-- **Value** is the number of work units that are `VERIFIED`
-  (`howmuch-verified-work-v0`): at least one check is linked, every linked
-  check passed, the record's own acceptance field says it was accepted, and
-  it names an output (a commit that differs from where it started, or an
-  artifact hash). Checks that passed without that, a failed check, a blocked
-  or abandoned unit and an unreadable status are each kept as their own
-  count. Checks, commits, artifacts and acceptance are separate figures.
-- **Human Cost** is what a person was recorded doing
-  (`howmuch-founder-touch-v0`): touch events, counted once per durable id
-  and joined to a work unit only by an equal work unit id. Recorded actions,
-  measured active time and waiting time are three separate figures; active
-  time is `UNKNOWN` unless every event measured it.
-- **Dependency** is what the work leaned on: the lanes used, and touches
-  per work unit when both are known.
-- **Investment** keeps its dimensions apart: observed tokens, ESTIMATED
-  API-equivalent $, charged cost, Founder touches and active human minutes.
-  They are never added together or converted into one another.
-- **ROI** is `UNKNOWN` while any dimension of the investment is unknown, and
-  the ratios that can be defended are listed beside it (verified work units
-  per Founder touch, per million observed tokens, per API-equivalent $). A
-  ratio is shown only when its denominator is evidence-backed, complete and
-  above zero. There is no rating and no blended score.
-
-Verified work and touches come only from structured records you name:
-`--work-records DIR` (or `$HOWMUCH_WORK_RECORDS`) is a folder of
-`*/receipt.json` work records, and `--touch-log FILE` (or
-`$HOWMUCH_TOUCH_LOG`) is a JSON Lines log of intervention events. Only ids,
-statuses, counts, timestamps and hashes are read from them. Without them the
-figures are `UNKNOWN` with the reason: a missing log is never zero touches.
-
-The receipt fields, each with its evidence or an `UNKNOWN` reason in
-`--json`:
-
-- human time: active human minutes, model working minutes (prompt to last
-  reply), idle time, interruptions, and the gap from a reply to the next
-  prompt. A gap is wall-clock time; it is not called idle time or attention.
-- context pressure: context growth, cache-read growth, turns re-reading
-  150,000 or more cached tokens, and a compact-or-start-fresh note only when
-  long context is a measured drain.
-- outcome evidence: checks passed and failed, commands passed, commits
-  created and referenced, artifacts, file edits applied, tasks accepted and
-  the verified-work status.
-- friction: repair loops (ESTIMATE), failed tool calls, context resets and
-  abandoned work units; corrections, re-explaining, manual recovery,
-  restarts and long waits are `UNKNOWN`, because message text is never read.
-
-For each work unit, `roi` also shows the provider quota observed beside its
-start and its end, with the observation time, source and freshness
-(`CURRENT` within 15 minutes, else `STALE`), or `UNKNOWN` with the reason.
-That meter is the provider account's, so the difference is never called the
-work unit's own consumption.
-
-`WHAT SHOULD YOU DO NEXT` gives at most two actions, each with the evidence
-that triggered it, a confidence and its provenance (`OBSERVED`, `INFERRED`,
-`RECOMMENDED`). Quota timing advice appears only from the provider's own
-current figure with an observed reset time. With nothing to go on it says
-`INSUFFICIENT_EVIDENCE`.
 
 ## The rollup (today)
 
@@ -766,12 +360,13 @@ even if it did several things. A turn inside a repair loop is counted as
 friction in full. Long context is not always avoidable, which is why the
 suggestion says how confident it is and shows its figures.
 
-## 5-hour window (ESTIMATE, `--json` only)
+## 5-hour window (ESTIMATE)
 
-The receipt no longer prints this section, and `QUOTA` is no longer
-calculated from it: it is a time-based estimate, not the provider's meter.
-`--json` still carries the figures as `quota_window`, and `howmuch record`
-does not depend on them. What follows describes that JSON object.
+This section is the fallback, not the quota itself. `week` always prints it.
+`today` prints it only when Claude Code's quota is `MACHINE CALCULATED`: when
+the provider's own figure or one you typed in is in force, that figure is
+shown under `QUOTA` and this estimate is left out. `--json` carries
+`quota_window` either way.
 
 Claude Code plans are metered in rolling 5-hour windows. The session files
 record neither the windows nor your limit, so the `5-HOUR WINDOW (ESTIMATE)`
@@ -809,15 +404,14 @@ max and the limit's provenance: windows used, hit count and date range) in a
 `5h-rolling-approx` and `confidence` (`none`, `low` or `medium`). A sample
 fixture receipt that shows it is `samples/fixture_today_quota_calculated.txt`.
 
-## Quota (MACHINE OBSERVED, HUMAN OBSERVED or UNKNOWN)
+## Quota (MACHINE OBSERVED, HUMAN OBSERVED, MACHINE CALCULATED or UNKNOWN)
 
-`howmuch today` prints one `QUOTA` section under the four-part summary,
-with a block for each lane that has usage in the period: is the plan quota
-available, low, used up, due to reset, or unknown? A provider you did not
-use in the period has no block. Each block gives the state, the share left,
-the reset time, the source, when it was seen and the confidence. `week` has
-no such section: the state is about now. This is the quota section of the
-sample with Claude Code and a second Codex home both used and observed
+`howmuch today` prints one `QUOTA` section directly under the API-equivalent
+total, with a block for Claude Code and a block for Codex: is the plan quota
+available, low, used up, due to reset, or unknown? Each block gives the
+state, the share left (or the estimated burn), the reset time, the source,
+when it was seen and the confidence. `week` has no such section: the state
+is about now. This is the sample with both providers observed
 (`samples/fixture_today_quota_receipt.txt`):
 
 ```text
@@ -830,16 +424,15 @@ Claude Code                            AVAILABLE
   seen                          2026-09-20 14:55
   confidence                                HIGH
   from a provider value saved on this machine
-Codex ~/.codex2                        AVAILABLE
+Codex                                  AVAILABLE
   remaining                                  42%
-  resets                        2026-09-24 08:50
-    in                                    3d 17h
+  resets                        2026-09-24 09:00
+    in                                    3d 18h
   source                        MACHINE OBSERVED
   seen                          2026-09-20 14:50
   confidence                                HIGH
   from Codex session files on this machine
 howmuch-quota-v0; read locally
-only lanes with usage in this period
 ```
 
 Quota is what the provider says is used, not how much time has passed. For
@@ -861,10 +454,11 @@ in force is shown (`source_rank` in `--json`):
 2. **HUMAN OBSERVED**: a figure you typed in with `howmuch set-quota` (see
    below). It is in force until its reset time, or for 1 hour when you gave
    none, and its confidence is never above `MEDIUM`.
-
-The receipt has no third, calculated source. An estimate from elapsed time
-and your own usage is not the provider's number, so `today` shows `UNKNOWN`
-instead of one (the estimate stays in `--json` as `quota_window`).
+3. **MACHINE CALCULATED**: Claude Code only. The 5-hour window's $ over the
+   inferred limit above (`burn ESTIMATE`). It never says `EXHAUSTED` and
+   never gives a remaining share: the inferred limit is not the provider's
+   number. Only then does `today` print the `5-HOUR WINDOW (ESTIMATE)`
+   section. There is no estimate for Codex.
 
 A source that is stale or cannot be read is skipped, never shown as the
 current value. With nothing in force the state is **UNKNOWN**, with the
@@ -1132,34 +726,6 @@ PATH line, and a refusal with Python older than 3.9. No test downloads
 anything. If a `dist/REBUILD` marker exists (left by a session that could not
 run `tools/build_pyz.py`), that test rebuilds `dist/howmuch.pyz` once and
 deletes the marker.
-
-`tests/test_candidate_b_presentation.py` builds
-`dist/howmuch-candidate-b.pyz` twice (the bytes must match), installs it with
-`install.sh` into a temporary folder outside the checkout, and runs it on a
-Claude-only and a Codex-only fixture for `today` and `week`: the text and
-`--json` must equal what the sources print, and both must keep the receipt
-layout. It also runs the earlier candidate's pyz, read from git, on the same
-fixtures to show what changed, regenerates the showcase samples, and writes
-`evidence/HOWMUCH-ENV-LAYER-V0-STEP-016/`. All of its data is made up. It
-builds candidate B from the working tree, so the whole file is skipped once
-the sources no longer give candidate B's recorded bytes; that keeps the
-recorded file from being replaced.
-
-The v15 tests are at the end of `tests/test_install.py`, with their helpers
-in `tests/candidate_v15.py`. They build `dist/howmuch-candidate-v15.pyz`
-twice (the bytes must match) and check candidate B's file is untouched. They
-copy v15 and `install.sh` to a temporary folder outside the checkout, install
-it there, and run `today` and `week` on three made-up fixtures (Claude Code
-alone, Codex alone, both with quota): text and `--json` must equal what the
-sources print, and must print the same again with every socket call refused.
-They then run the release workflow's own commands against a staged copy at a
-`file://` address: check the staged file, install with one command, check
-the installed file, smoke, roll back, and the cases where the staged file is
-a different or a broken one. Last they regenerate the showcase samples, write
-`samples/prototype_v15.html` and write
-`evidence/HOWMUCH-ENV-LAYER-V0-STEP-017/`. Nothing is downloaded or published.
-Like candidate B's, these tests skip once the sources no longer give v15's
-recorded bytes.
 
 ## Codex / ChatGPT API-equivalent cost (development)
 
