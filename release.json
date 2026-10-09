@@ -1,5 +1,5 @@
 {
-  "distribution_base_sha": "69565707d9c3fc28d9c202159778c1a0dc078fee",
+  "distribution_base_sha": "eba57ae0678e0e5f12bc38b8b6cf201fb1ce8f5b",
   "distribution_repository": "InferGen/howmuch",
   "product": "HowMuch",
   "public_manifest": [
@@ -11,8 +11,8 @@
   ],
   "release_tag": "v0.1.1",
   "schema": "howmuch.public-release-provenance/v1",
-  "source_artifact_sha256": "bf748f1253e9500564f3840932fa6c0c25f540ea8a25660f851dea4ab8bd6563",
-  "source_candidate_sha": "f6831ed1629b3b6527b3ac3128021e1eb9647b09",
+  "source_artifact_sha256": "735e91fc7610f418bfb087a805f2b2519d7d37862ed3864d224e3e132f155af5",
+  "source_candidate_sha": "c89c86887fe8601e1ba8e322b60d36b6ae325b05",
   "source_repository": "InferGen/Snoozelab",
   "version": "0.1.1"
 }
